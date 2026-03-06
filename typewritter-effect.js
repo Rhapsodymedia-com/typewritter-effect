@@ -1,0 +1,154 @@
+var txtTypes = []
+;(function () {
+	"use strict"
+	const scriptTag = document.getElementById("type-writer")
+	const speedBetweenLetter = scriptTag?.getAttribute("speed-between-letter")
+	const beforeErasePause = scriptTag?.getAttribute(
+		"pause-time-before-erase-word"
+	)
+	const beforeNewWordPause = scriptTag?.getAttribute(
+		"pause-time-before-new-word"
+	)
+	const cursorColor = scriptTag?.getAttribute("cursor-color")
+	const cursorBlinking = scriptTag?.getAttribute("cursor-blinking") || "yes"
+	const cursorBlinkingSpeed = scriptTag?.getAttribute("cursor-blinking-speed")
+	require.config({
+		paths: {
+			CerosSDK: "//sdk.ceros.com/standalone-player-sdk-v5.min"
+		}
+	})
+	require(["CerosSDK"], function (CerosSDK) {
+		CerosSDK.findExperience()
+			.fail(function (error) {
+				console.error(error)
+			})
+			.done(function (experience) {
+				window.myExperience = experience
+				const animation = experience.findComponentsByTag("type-writer")
+				experience.on(
+					CerosSDK.EVENTS.PAGE_CHANGED,
+					pageChangedCallbackText
+				)
+				function pageChangedCallbackText() {
+					animation.components.forEach(function (component) {
+						$(`#${component.id}`).addClass("type-write")
+					})
+					setTimeout(function () {
+						const elements =
+							document.getElementsByClassName("type-write")
+						for (let i = 0; i < elements.length; i++) {
+							const element = elements[i]
+							const id = element.id
+							const component = myExperience.findComponentById(id)
+							const tags = component.getTags()
+							const erase =
+								tags.indexOf("erase") !== -1 ? "true" : "false"
+							const wordRotate = component.payload
+							const period = beforeErasePause || 2000
+							if (
+								wordRotate &&
+								!$(element).hasClass("added-effect")
+							) {
+								const newest = new TxtType(
+									element,
+									JSON.parse(wordRotate),
+									period,
+									erase
+								)
+								txtTypes.push(newest)
+								element.classList.add("added-effect")
+							}
+						}
+					}, 1000)
+					for (const txt of txtTypes) {
+						clearTimeout(txt.cancelTimeout)
+						txt.txt = ""
+						txt.tick()
+					}
+					class TxtType {
+						constructor(el, wordRotate, period, erase) {
+							this.wordRotate = wordRotate
+							this.el = el
+							this.id = el.id
+							this.component = myExperience.findComponentById(
+								this.id
+							)
+							this.loopNum = 0
+							this.period = parseInt(period, 10) || 2000
+							this.erase = erase
+							this.txt = ""
+							this.isDeleting = false
+							this.cursor = true
+							this.cancelTimeout = null
+							this.tick()
+						}
+						tick() {
+							const i = this.loopNum % this.wordRotate.length
+							const fullTxt = this.wordRotate[i]
+							if (this.isDeleting) {
+								this.txt = fullTxt.substring(
+									0,
+									this.txt.length - 1
+								)
+							} else {
+								this.txt = fullTxt.substring(
+									0,
+									this.txt.length + 1
+								)
+							}
+							const color = cursorColor || this.el.style.color
+							this.el.innerHTML =
+								`<span class="wrap" style="border-right: 0.08em solid ${color} !important">` +
+								this.txt +
+								"</span>"
+							let delta
+							if (!isEmpty(speedBetweenLetter)) {
+								delta = speedBetweenLetter - Math.random() * 100
+							} else {
+								delta =
+									(speedBetweenLetter || 200) -
+									Math.random() * 100
+							}
+							if (this.isDeleting) {
+								delta /= 2
+							}
+							if (!this.isDeleting && this.txt === fullTxt) {
+								if (this.erase === "true") {
+									delta = this.period
+									this.isDeleting = true
+								} else {
+									if (cursorBlinking === "true") {
+										if (this.cursor) {
+											this.el.childNodes[0].style.borderRightColor =
+												"transparent"
+											this.cursor = false
+										} else {
+											this.el.childNodes[0].style.borderRightColor =
+												color
+											this.cursor = true
+										}
+										delta = cursorBlinkingSpeed || 400
+									} else {
+										this.el.innerHTML =
+											'<span class="wrap" style="border-right: none !important">' +
+											this.txt +
+											"</span>"
+									}
+								}
+							} else if (this.isDeleting && this.txt === "") {
+								this.isDeleting = false
+								this.loopNum++
+								delta = beforeNewWordPause || 500
+							}
+							this.cancelTimeout = setTimeout(() => {
+								this.tick()
+							}, delta)
+						}
+					}
+					function isEmpty(str) {
+						return !str || str.length === 0
+					}
+				}
+			})
+	})
+})()
