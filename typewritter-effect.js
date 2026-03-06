@@ -1,4 +1,4 @@
-var txtTypes = []
+let txtTypes = []
 ;(function () {
 	"use strict"
 	const scriptTag = document.getElementById("type-writer")
@@ -80,6 +80,21 @@ var txtTypes = []
 							this.isDeleting = false
 							this.cursor = true
 							this.cancelTimeout = null
+							this.textNode =
+								this.el.querySelector(".typewriter-text")
+							this.cursorNode =
+								this.el.querySelector(".typewriter-cursor")
+							if (!this.textNode || !this.cursorNode) {
+								this.el.innerHTML = ""
+								this.textNode = document.createElement("span")
+								this.textNode.className = "typewriter-text"
+								this.cursorNode = document.createElement("span")
+								this.cursorNode.className = "typewriter-cursor"
+								this.cursorNode.textContent = ""
+								this.el.appendChild(this.textNode)
+								this.el.appendChild(this.cursorNode)
+							}
+							this.cursorNode.style.borderRight = `0.08em solid ${cursorColor || this.el.style.color}`
 							this.tick()
 						}
 						tick() {
@@ -96,11 +111,9 @@ var txtTypes = []
 									this.txt.length + 1
 								)
 							}
+							this.textNode.textContent = this.txt
 							const color = cursorColor || this.el.style.color
-							this.el.innerHTML =
-								`<span class="wrap" style="border-right: 0.08em solid ${color} !important">` +
-								this.txt +
-								"</span>"
+							this.cursorNode.style.borderRightColor = color
 							let delta
 							if (!isEmpty(speedBetweenLetter)) {
 								delta = speedBetweenLetter - Math.random() * 100
@@ -118,21 +131,13 @@ var txtTypes = []
 									this.isDeleting = true
 								} else {
 									if (cursorBlinking === "true") {
-										if (this.cursor) {
-											this.el.childNodes[0].style.borderRightColor =
-												"transparent"
-											this.cursor = false
-										} else {
-											this.el.childNodes[0].style.borderRightColor =
-												color
-											this.cursor = true
-										}
+										this.cursorNode.style.borderRightColor =
+											this.cursor ? "transparent" : color
+										this.cursor = !this.cursor
 										delta = cursorBlinkingSpeed || 400
 									} else {
-										this.el.innerHTML =
-											'<span class="wrap" style="border-right: none !important">' +
-											this.txt +
-											"</span>"
+										this.cursorNode.style.borderRight =
+											"none"
 									}
 								}
 							} else if (this.isDeleting && this.txt === "") {
